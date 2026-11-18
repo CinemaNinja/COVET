@@ -86,4 +86,96 @@
       if (section) watch.observe(section);
     });
   }
+
+  const chapters = [
+    { id: "drift", label: "Drift" },
+    { id: "edit", label: "Edit" },
+    { id: "house", label: "House" },
+    { id: "collections", label: "Collections" },
+    { id: "press", label: "Press" },
+    { id: "visit", label: "Visit" }
+  ].map((item) => ({ ...item, el: document.getElementById(item.id) })).filter((item) => item.el);
+
+  if (chapters.length > 2 && !document.querySelector(".chapter-rail")) {
+    const ringLength = 2 * Math.PI * 11;
+    const rail = document.createElement("nav");
+    rail.className = "chapter-rail";
+    rail.setAttribute("aria-label", "Sections");
+    const progress = document.createElement("span");
+    progress.className = "chapter-rail-progress";
+    progress.innerHTML = '<span class="chapter-rail-progress-track" aria-hidden="true"></span><span class="chapter-rail-progress-bar" aria-hidden="true"></span><span class="chapter-rail-progress-ember" aria-hidden="true"></span>';
+    rail.appendChild(progress);
+
+    const items = chapters.map((chapter, i) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chapter-rail-btn";
+      btn.setAttribute("aria-label", chapter.label);
+      if (!reduce) btn.style.animationDelay = (0.15 + i * 0.08) + "s";
+      btn.innerHTML = '<span class="chapter-rail-ring" aria-hidden="true"><svg viewBox="0 0 34 34"><circle cx="17" cy="17" r="11"></circle></svg></span><span class="chapter-rail-dot" aria-hidden="true"></span><span class="chapter-rail-label">' + chapter.label + "</span>";
+      btn.addEventListener("click", () => {
+        chapter.el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      });
+      rail.appendChild(btn);
+      return { btn: btn, el: chapter.el, circle: btn.querySelector("circle") };
+    });
+    document.body.appendChild(rail);
+
+    const bar = progress.querySelector(".chapter-rail-progress-bar");
+    const ember = progress.querySelector(".chapter-rail-progress-ember");
+    let ticking = false;
+
+    function paint() {
+      const railRect = rail.getBoundingClientRect();
+      const first = items[0].btn.getBoundingClientRect();
+      const last = items[items.length - 1].btn.getBoundingClientRect();
+      progress.style.top = Math.max(0, first.top + first.height / 2 - railRect.top) + "px";
+      progress.style.bottom = Math.max(0, railRect.bottom - (last.top + last.height / 2)) + "px";
+
+      const n = items.length;
+      const marker = window.scrollY + window.innerHeight * 0.38;
+      const starts = items.map((item) => item.el.getBoundingClientRect().top + window.scrollY);
+      const lastEnd = starts[n - 1] + Math.max(items[n - 1].el.offsetHeight, window.innerHeight * 0.5);
+      let index = 0;
+      for (; index < n - 1; index += 1) {
+        if (marker < starts[index + 1]) break;
+      }
+      const end = index < n - 1 ? starts[index + 1] : lastEnd;
+      const local = Math.min(1, Math.max(0, (marker - starts[index]) / Math.max(1, end - starts[index])));
+      const pct = Math.min(1, (index + local) / (n - 1));
+      const filled = ringLength * pct;
+      if (bar) bar.style.height = (pct * 100) + "%";
+      if (ember) {
+        ember.style.top = (pct * 100) + "%";
+        ember.style.opacity = pct > 0.02 ? "1" : "0";
+      }
+      items.forEach((item, i) => {
+        item.btn.classList.toggle("is-reached", pct >= i / Math.max(1, n - 1) - 0.02);
+        item.btn.classList.toggle("is-active", i === index);
+        if (item.circle) item.circle.style.strokeDasharray = filled.toFixed(2) + " " + (ringLength - filled).toFixed(2);
+      });
+      ticking = false;
+    }
+
+    function requestPaint() {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(paint);
+    }
+
+    const hero = document.getElementById("top");
+    if (hero && "IntersectionObserver" in window) {
+      const vis = new IntersectionObserver(([entry]) => {
+        rail.classList.toggle("is-visible", !entry.isIntersecting);
+        requestPaint();
+      }, { threshold: 0.55 });
+      vis.observe(hero);
+    } else {
+      rail.classList.add("is-visible");
+    }
+
+    window.addEventListener("scroll", requestPaint, { passive: true });
+    window.addEventListener("resize", requestPaint, { passive: true });
+    paint();
+  }
 })();
