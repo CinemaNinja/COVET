@@ -1205,6 +1205,29 @@ h2 {
   text-align: center;
 }
 
+.closing {
+  display: grid;
+  place-items: center;
+  padding: 3.5rem 8vw 4.5rem;
+  background: #090d10;
+}
+
+.closing video {
+  width: min(440px, 72vw);
+  max-height: 74vh;
+  height: auto;
+  display: block;
+  border-radius: 18px;
+  -webkit-mask-image:
+    linear-gradient(to right, transparent, #fff 14%, #fff 86%, transparent),
+    linear-gradient(to bottom, transparent, #fff 12%, #fff 88%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to right, transparent, #fff 14%, #fff 86%, transparent),
+    linear-gradient(to bottom, transparent, #fff 12%, #fff 88%, transparent);
+  mask-composite: intersect;
+}
+
 .foot {
   padding: 3.5rem 7vw 2.5rem;
   background: #090d10;

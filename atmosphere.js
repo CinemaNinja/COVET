@@ -27,6 +27,12 @@
     requestAnimationFrame(tickRing);
   }
 
+  const film = document.querySelector(".closing video");
+  if (film && reduce) {
+    film.removeAttribute("autoplay");
+    film.pause();
+  }
+
   if (!reduce) {
     window.addEventListener("pointermove", (event) => {
       light((event.clientX / window.innerWidth) * 100, (event.clientY / window.innerHeight) * 100);
