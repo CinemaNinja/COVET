@@ -1,6 +1,6 @@
 RAWPHOTOS
 images/catalog-cut
-catalog
+/catalog
 .venv
 .git
 node_modules

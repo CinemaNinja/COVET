@@ -3,5 +3,5 @@
 RAWPHOTOS/
 .vercel
 images/catalog-cut/
-catalog/
+/catalog/
 **/__pycache__/
