@@ -126,8 +126,8 @@ function frame(now) {
     img.style.filter = [
       "brightness(" + (0.72 + forward * 0.38).toFixed(3) + ")",
       "drop-shadow(0 " + (10 + forward * 16).toFixed(1) + "px 16px rgba(0, 0, 0, " + (0.22 + forward * 0.28).toFixed(3) + "))",
-      "drop-shadow(0 0 " + (8 + glow * 18).toFixed(1) + "px rgba(255, 196, 120, " + (glow * 0.95).toFixed(3) + "))",
-      "drop-shadow(0 0 " + (18 + glow * 36).toFixed(1) + "px rgba(255, 104, 32, " + (glow * 0.72).toFixed(3) + "))"
+      "drop-shadow(0 0 " + (8 + glow * 18).toFixed(1) + "px rgba(212, 175, 55, " + (glow * 0.95).toFixed(3) + "))",
+      "drop-shadow(0 0 " + (18 + glow * 36).toFixed(1) + "px rgba(212, 175, 55, " + (glow * 0.72).toFixed(3) + "))"
     ].join(" ");
     el.classList.remove("is-front");
   });
