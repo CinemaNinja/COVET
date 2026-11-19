@@ -598,9 +598,131 @@
     });
   }
 
+  function money(value) {
+    const amount = Number(value);
+    if (!amount) return "";
+    return amount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  }
+
+  function storeTile(item) {
+    const el = document.createElement("article");
+    el.className = "store-card" + (item.section === "covet-collection" ? "" : " is-plate");
+    el.dataset.designer = item.designer || "";
+    el.dataset.name = item.name || "";
+    el.dataset.kind = item.kind || "";
+    el.dataset.section = item.section || "";
+    if (item.madeToOrder) el.dataset.made = "true";
+    if (item.href) el.dataset.href = item.href;
+    if (item.price) el.dataset.price = item.price;
+    const frames = item.images && item.images.length ? item.images : [item.image];
+    if (frames.length) el.dataset.images = frames.join("|");
+
+    const shot = document.createElement("button");
+    shot.type = "button";
+    shot.className = "store-shot";
+    const img = document.createElement("img");
+    img.src = frames[0] || "";
+    img.alt = item.name + ", " + item.designer;
+    img.loading = "lazy";
+    img.decoding = "async";
+    shot.appendChild(img);
+    shot.addEventListener("click", () => {
+      if (el.dataset.href && window.openShop) window.openShop(el);
+      else {
+        remember(el);
+        openLook(el);
+      }
+    });
+
+    const name = document.createElement("h3");
+    name.className = "store-name";
+    name.textContent = item.name;
+
+    const meta = document.createElement("p");
+    meta.className = "store-meta";
+    meta.textContent = item.madeToOrder ? item.designer + "  ·  Made to order" : item.designer;
+
+    const price = document.createElement("p");
+    price.className = "store-price";
+    price.textContent = money(item.price);
+
+    el.append(shot, name, meta);
+    if (price.textContent) el.appendChild(price);
+    if (item.href) {
+      const buy = document.createElement("button");
+      buy.type = "button";
+      buy.className = "card-buy";
+      buy.textContent = "Buy now";
+      buy.addEventListener("click", () => {
+        if (!window.covetCart) return;
+        window.covetCart.add({
+          id: (item.href || "").split("/products/")[1] || item.name,
+          name: item.name,
+          price: item.price,
+          image: frames[0] || "",
+          made: !!item.madeToOrder
+        });
+      });
+      el.appendChild(buy);
+    }
+    return el;
+  }
+
+  function mountStore() {
+    const grid = document.getElementById("store-grid");
+    const filters = document.getElementById("store-filters");
+    if (!grid || !filters) return;
+    const all = sections.reduce((list, section) => list.concat(section.items), []);
+    function show(id) {
+      const list = id === "all" ? all : all.filter((item) => item.section === id);
+      grid.replaceChildren.apply(grid, list.map(storeTile));
+      filters.querySelectorAll("button").forEach((button) => {
+        const on = button.dataset.room === id;
+        button.classList.toggle("is-on", on);
+        button.setAttribute("aria-selected", on ? "true" : "false");
+      });
+    }
+    [{ id: "all", label: "All" }].concat(sections.filter((section) => section.items.length).map((section) => ({
+      id: section.id,
+      label: section.label
+    }))).forEach((room) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.room = room.id;
+      button.textContent = room.label;
+      button.setAttribute("role", "tab");
+      button.addEventListener("click", () => show(room.id));
+      filters.appendChild(button);
+    });
+    show("all");
+  }
+
+  function setView(view) {
+    const store = view === "store";
+    document.body.classList.toggle("is-store", store);
+    const panel = document.getElementById("storefront");
+    if (panel) panel.hidden = !store;
+    document.querySelectorAll(".view-toggle-btn").forEach((button) => {
+      const on = button.dataset.view === (store ? "store" : "rooms");
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    if (!store && location.hash === "#store") history.replaceState(null, "", location.pathname + location.search);
+    window.scrollTo(0, 0);
+  }
+
+  document.querySelectorAll(".view-toggle-btn").forEach((button) => {
+    button.addEventListener("click", () => setView(button.dataset.view));
+  });
+  document.querySelectorAll(".nav a").forEach((link) => {
+    link.addEventListener("click", () => setView("rooms"));
+  });
+
   paint();
   wireShop();
   renderRecent();
+  mountStore();
+  if (location.hash === "#store") setView("store");
   if (document.readyState === "complete") activate(active, false);
   else window.addEventListener("load", () => activate(active, false));
 })();

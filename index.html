@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=sense34">
+  <link rel="stylesheet" href="styles.css?v=sense36">
   <script>
     (function () {
       var h = new Date().getHours();
@@ -36,6 +36,10 @@
       </nav>
     </div>
     <div class="nav-tools">
+      <div class="view-toggle" role="group" aria-label="Choose a view">
+        <button class="view-toggle-btn is-on" type="button" data-view="rooms" aria-pressed="true">Rooms</button>
+        <button class="view-toggle-btn" type="button" data-view="store" aria-pressed="false">Store</button>
+      </div>
       <button class="bag" id="bag" type="button" aria-label="Open the bag">
         <svg viewBox="0 0 32 32" aria-hidden="true">
           <path d="M10 12V9a6 6 0 0 1 12 0v3"></path>
@@ -318,6 +322,15 @@
     </section>
   </main>
 
+  <section class="storefront" id="storefront" hidden>
+    <div class="store-head">
+      <p class="eyebrow">The store</p>
+      <h2>Everything, in hand.</h2>
+    </div>
+    <div class="store-filters" id="store-filters" role="tablist" aria-label="Rooms in the store"></div>
+    <div class="store-grid" id="store-grid"></div>
+  </section>
+
   <footer class="foot">
     <img class="brand" src="images/logo.png" alt="Covet">
     <p>Aspen · jewels, handbags, home, art, gifts</p>
@@ -368,7 +381,7 @@
   <script src="press.js?v=sense15"></script>
   <script src="catalog.js?v=sense5"></script>
   <script src="covet-collection.js?v=sense10"></script>
-  <script src="sections.js?v=sense16"></script>
+  <script src="sections.js?v=sense17"></script>
   <script src="shop-config.js?v=sense1"></script>
   <script src="cart.js?v=sense1"></script>
   <script src="atmosphere.js?v=sense10"></script>
