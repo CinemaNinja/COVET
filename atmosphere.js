@@ -27,11 +27,11 @@
     requestAnimationFrame(tickRing);
   }
 
-  const film = document.querySelector(".closing video");
-  if (film && reduce) {
-    film.removeAttribute("autoplay");
-    film.pause();
-  }
+  const film = document.querySelectorAll(".runway video");
+  if (reduce) film.forEach((clip) => {
+    clip.removeAttribute("autoplay");
+    clip.pause();
+  });
 
   if (!reduce) {
     window.addEventListener("pointermove", (event) => {

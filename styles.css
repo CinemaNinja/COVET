@@ -1205,26 +1205,44 @@ h2 {
   text-align: center;
 }
 
-.closing {
+.runway {
+  position: relative;
+  z-index: 2;
   display: grid;
   place-items: center;
-  padding: 3.5rem 8vw 4.5rem;
-  background: #090d10;
+  min-height: 72vh;
+  margin: -10vh 0 -8vh;
+  padding: 8vh 0 10vh;
+  pointer-events: none;
 }
 
-.closing video {
-  width: min(440px, 72vw);
-  max-height: 74vh;
-  height: auto;
+.runway video {
+  grid-area: 1 / 1;
   display: block;
-  border-radius: 18px;
+}
+
+.runway-wash {
+  width: min(1100px, 140vw);
+  height: min(82vh, 920px);
+  object-fit: cover;
+  filter: blur(36px) saturate(1.2) brightness(0.62);
+  opacity: 0.5;
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 18%, transparent 70%);
+  mask-image: radial-gradient(ellipse at center, #000 18%, transparent 70%);
+}
+
+.runway-figure {
+  width: min(480px, 68vw);
+  max-height: 76vh;
+  height: auto;
+  object-fit: cover;
   -webkit-mask-image:
-    linear-gradient(to right, transparent, #fff 14%, #fff 86%, transparent),
-    linear-gradient(to bottom, transparent, #fff 12%, #fff 88%, transparent);
+    linear-gradient(to right, transparent, #fff 22%, #fff 78%, transparent),
+    linear-gradient(to bottom, transparent, #fff 14%, #fff 86%, transparent);
   -webkit-mask-composite: source-in;
   mask-image:
-    linear-gradient(to right, transparent, #fff 14%, #fff 86%, transparent),
-    linear-gradient(to bottom, transparent, #fff 12%, #fff 88%, transparent);
+    linear-gradient(to right, transparent, #fff 22%, #fff 78%, transparent),
+    linear-gradient(to bottom, transparent, #fff 14%, #fff 86%, transparent);
   mask-composite: intersect;
 }
 
