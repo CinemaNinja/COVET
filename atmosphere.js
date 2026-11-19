@@ -33,6 +33,30 @@
     clip.pause();
   });
 
+  const feather = document.querySelector(".logo-feather");
+  if (feather && !reduce) {
+    const duration = 4400;
+    const started = performance.now();
+    feather.style.opacity = "0";
+    function fall(now) {
+      const t = Math.min(1, (now - started) / duration);
+      const drop = 1 - Math.pow(1 - t, 2.8);
+      const calm = Math.pow(1 - t, 1.55);
+      const phase = t * Math.PI * 2 * 1.55;
+      const x = Math.sin(phase) * 12 * calm;
+      const y = -58 * (1 - drop);
+      const tilt = Math.cos(phase) * 8 * calm;
+      feather.style.opacity = Math.min(1, t / 0.16).toFixed(3);
+      feather.style.transform = "translate3d(" + x.toFixed(2) + "%, " + y.toFixed(2) + "vh, 0) rotate(" + tilt.toFixed(2) + "deg)";
+      if (t < 1) requestAnimationFrame(fall);
+      else {
+        feather.style.opacity = "";
+        feather.style.transform = "";
+      }
+    }
+    requestAnimationFrame(fall);
+  }
+
   if (!reduce) {
     window.addEventListener("pointermove", (event) => {
       light((event.clientX / window.innerWidth) * 100, (event.clientY / window.innerHeight) * 100);
