@@ -1,0 +1,16 @@
+/* Page chrome for the standalone preview only. The component styles itself. */
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: #120c07;
+}
+
+body {
+  overflow: hidden;
+}
+
+#root {
+  touch-action: none;
+}
