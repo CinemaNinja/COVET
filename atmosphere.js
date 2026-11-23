@@ -122,6 +122,7 @@
     { id: "edit", label: "Edit" },
     { id: "house", label: "House" },
     { id: "collections", label: "Collections" },
+    { id: "cards", label: "Cards" },
     { id: "press", label: "Press" },
     { id: "visit", label: "Visit" },
     { id: "instagram", label: "Instagram" }

@@ -561,7 +561,7 @@ h2 {
 }
 
 .hero {
-  z-index: 12;
+  z-index: 13;
   min-height: 100vh;
   display: grid;
   align-items: center;
@@ -609,6 +609,7 @@ h2 {
 .edit,
 .portal,
 .collections,
+.cards,
 .press,
 .visit,
 .instagram-section {
@@ -634,6 +635,7 @@ h2 {
 .edit,
 .portal,
 .collections,
+.cards,
 .press,
 .visit,
 .instagram-section,
@@ -642,7 +644,7 @@ h2 {
 }
 
 .drift {
-  z-index: 10;
+  z-index: 11;
   min-height: calc(100vh + var(--seam) * 2);
   padding: calc(6.5rem + var(--seam)) 0 calc(3rem + var(--seam));
 }
@@ -857,7 +859,7 @@ h2 {
 
 .edit {
   position: relative;
-  z-index: 9;
+  z-index: 10;
   min-height: 100vh;
   color: var(--pearl);
   padding: var(--seam) 0;
@@ -1058,7 +1060,7 @@ h2 {
 }
 
 .portal {
-  z-index: 8;
+  z-index: 9;
   min-height: calc(100vh + var(--seam));
   padding-bottom: var(--seam);
   display: grid;
@@ -1182,9 +1184,84 @@ h2 {
   min-height: 1.4rem;
 }
 
-.collections {
+/* The deck: a pack of cards for sale, between the rooms and the press. The window
+   sits behind it and dissolves at its edges the way the other rooms do. The pack
+   itself is styled in card-pack.css. */
+.cards {
   position: relative;
   z-index: 7;
+  min-height: calc(100vh + var(--seam) * 2);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: calc(5.5rem + var(--seam)) 0 calc(2.5rem + var(--seam));
+  background: var(--tide);
+}
+
+.cards-window {
+  background-image: url("images/layers/cards-window.jpg");
+  background-position: center;
+  animation-duration: 70s;
+  animation-name: ken-soft;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+}
+
+.cards-scrim {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(8, 10, 12, 0.34), transparent 52%),
+    linear-gradient(180deg, rgba(8, 10, 12, 0.42), rgba(8, 10, 12, 0.1) 34%, rgba(8, 10, 12, 0.14) 64%, rgba(8, 10, 12, 0.5));
+}
+
+.cards-stage {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 1.5rem 6vw;
+}
+
+.cards-head h2 { margin-bottom: 0.9rem; }
+
+.cards-lede {
+  max-width: 34rem;
+  margin: 0 auto;
+  text-wrap: balance;
+  color: rgba(246, 241, 232, 0.86);
+}
+
+.cards .pack {
+  --card-w: min(1.9in, 13.5vw, calc(34vh * 2.75 / 4.75));
+  margin-top: 2.6rem;
+}
+
+.cards-meta {
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--gold);
+}
+
+.cards .hint { margin: 0; }
+
+.cards-flip { margin-top: 1.4rem; }
+
+.cards-note {
+  margin: 1rem 0 0;
+  font-family: var(--serif);
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: rgba(246, 241, 232, 0.72);
+}
+
+@media (max-width: 800px) {
+  .cards .pack { --card-w: min(1.5in, 22vw, calc(30vh * 2.75 / 4.75)); }
+  .cards-stage { padding: 1.5rem 1.25rem; }
+}
+
+.collections {
+  position: relative;
+  z-index: 8;
   min-height: calc(100vh + var(--seam) * 2);
   display: flex;
   flex-direction: column;
@@ -1467,7 +1544,7 @@ h2 {
 
 .runway {
   position: relative;
-  z-index: 11;
+  z-index: 12;
   display: grid;
   place-items: center;
   min-height: calc(72vh + 38vh);

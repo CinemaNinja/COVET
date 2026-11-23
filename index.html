@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=sense68">
+  <link rel="stylesheet" href="styles.css?v=sense72">
+  <link rel="stylesheet" href="card-pack.css?v=1">
   <script>
     (function () {
       var h = new Date().getHours();
@@ -234,6 +235,30 @@
       <div class="recent" id="recent" hidden>
         <p class="recent-kicker">Recently viewed</p>
         <div class="recent-row" id="recent-row"></div>
+      </div>
+    </section>
+
+    <section class="cards" id="cards">
+      <div class="layers" aria-hidden="true">
+        <div class="layer" data-speed="0.06">
+          <div class="plate cards-window"></div>
+        </div>
+        <div class="scrim cards-scrim"></div>
+      </div>
+      <div class="cards-stage" data-pack-stage>
+        <div class="cards-head">
+          <p class="eyebrow">The deck</p>
+          <h2>Pick a card.</h2>
+          <p class="cards-lede">Fifty-two cards and two jokers on black stock, the suits in copper and teal. Half the backs are copper red, half are blue. Sold by the pack, in its own box.</p>
+        </div>
+        <div class="pack" id="card-pack" data-card-pack data-clear="#nav" role="button" tabindex="0" aria-expanded="false" aria-label="Card pack"></div>
+        <p class="cards-meta">54 cards · 2.75 × 4.75 in · two backs</p>
+        <p class="hint">
+          <span class="pack-for-hover">Hover to fan the deck · glide across for a closer look</span>
+          <span class="pack-for-tap">Tap to fan the deck · slide across for a closer look</span>
+        </p>
+        <button class="enter cards-flip" type="button" data-pack-flip aria-pressed="false">Show the backs</button>
+        <p class="cards-note">Name, box, and price to follow.</p>
       </div>
     </section>
 
@@ -473,7 +498,8 @@
   <script src="canvas.js?v=3"></script>
   <script src="shop-config.js?v=sense3"></script>
   <script src="cart.js?v=sense3"></script>
-  <script src="atmosphere.js?v=sense13"></script>
+  <script src="card-pack.js?v=1"></script>
+  <script src="atmosphere.js?v=sense14"></script>
   <script src="edit.js?v=1"></script>
   <script src="golden-goo/embed/golden-goo.js?v=5" defer></script>
   <script src="abalone/embed/abalone.js?v=2" defer></script>
