@@ -209,4 +209,32 @@
     window.addEventListener("resize", requestPaint, { passive: true });
     paint();
   }
+
+  const studioCredit = document.querySelector(".studio-credit");
+  if (studioCredit && !reduce) {
+    studioCredit.addEventListener("click", () => {
+      studioCredit.classList.remove("is-struck");
+      void studioCredit.offsetWidth;
+      studioCredit.classList.add("is-struck");
+    });
+    studioCredit.addEventListener("animationend", (event) => {
+      if (event.animationName === "studio-strike") {
+        studioCredit.classList.remove("is-struck");
+      }
+    });
+  }
+
+  const igFollow = document.querySelector(".ig-follow");
+  if (igFollow && !reduce) {
+    igFollow.addEventListener("click", () => {
+      igFollow.classList.remove("is-struck");
+      void igFollow.offsetWidth;
+      igFollow.classList.add("is-struck");
+    });
+    igFollow.addEventListener("animationend", (event) => {
+      if (event.animationName === "ig-follow-bounce") {
+        igFollow.classList.remove("is-struck");
+      }
+    });
+  }
 })();
