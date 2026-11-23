@@ -229,11 +229,6 @@ function onScroll() {
     const shift = rect.top * speed * (parent.classList.contains("hero") ? 0.65 : 1);
     layer.style.transform = "translate3d(0, " + shift.toFixed(1) + "px, 0)";
   });
-  const hero = document.querySelector(".hero");
-  const jewel = document.querySelector(".hero-jewel");
-  if (hero && jewel) {
-    jewel.style.transform = "translate3d(0, " + (hero.getBoundingClientRect().top * -0.04).toFixed(1) + "px, 0)";
-  }
 }
 
 window.addEventListener("scroll", onScroll, { passive: true });

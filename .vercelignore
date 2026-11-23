@@ -5,3 +5,4 @@ images/catalog-cut
 .git
 node_modules
 *.ARW
+images/cards/*.png

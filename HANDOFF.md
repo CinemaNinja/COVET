@@ -30,6 +30,12 @@ A partial download was killed on purpose. About 71 files, ~53MB, landed in `cata
 
 Category collections on the shop, for later section names: Earrings, Rings, Chains + Locks, Charms, Necklaces, Pendants & Charms, Handbags, plus designer collections (Jacquie Aiche and others).
 
+## Canvas view
+
+Third view beside Rooms and Store (`canvas.js`, `#canvas` in `index.html`, `/#canvas` opens it directly). Every piece is a cutout on one pannable, zoomable surface, grouped by room.
+
+The cutouts are built, not hand-made. After pieces are added, removed, or re-photographed, run `.venv/bin/python tools/canvas_build.py` (Mac only, it uses the Vision framework through `tools/lift.swift`). It rewrites `images/canvas/` and `canvas-data.js`. A piece the build has not seen still shows, as its plain photo.
+
 ## Already on the local site
 
 Press section exists (`#press`, pages in `images/press/`). Hero jewel is the opal eye-burst cutout. Python Star necklace and The Halles / Round Top, Texas address are removed. Aspen landscape photos are faded into the page (not hard rectangles). House section uses the portrait. Close look, pointer light, time-of-day wash, and the falling feather are in. Linotype Didot Headline is still not licensed. Do not pirate it. Gold-on-pink cutouts use `tools/cutout.py`.

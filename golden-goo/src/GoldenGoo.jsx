@@ -1,17 +1,51 @@
 import { useEffect, useRef, useState } from "react";
-import { VERT, SIM_FRAG, DRAW_FRAG } from "./shaders.js";
+import { VERT, SIM_FRAG, DRAW_FRAG, DROP_COUNT, SWIRL_SPEED } from "./shaders.js";
 
 const SIM_LONG_SIDE = 256;
 const SIM_STEP = 1 / 60;
 const SPRING_STEP = 1 / 120;
 const MAX_RENDER_SCALE = 1.5;
 
-// Radii and spring feel for the heavy drop and the two that trail it.
-const MAIN = { radius: 0.15, stiffness: 34, zeta: 0.42 };
-const SATELLITES = [
-  { radius: 0.055, stiffness: 15, zeta: 0.36, offset: 0.215, angle: 0.5, spin: 0.19 },
-  { radius: 0.03, stiffness: 8.5, zeta: 0.32, offset: 0.275, angle: 2.6, spin: -0.13 },
-];
+// How much the swells lift and bend the surface (0 leaves it flat), and how
+// hard a passing pointer drags the ones near it.
+const SWELL = 0.8;
+const WAKE = 2.5;
+
+function halton(index, base) {
+  let fraction = 1;
+  let result = 0;
+  for (let i = index; i > 0; i = Math.floor(i / base)) {
+    fraction /= base;
+    result += fraction * (i % base);
+  }
+  return result;
+}
+
+const fract = (value) => value - Math.floor(value);
+
+// Beads are scattered evenly over the whole surface (u, v run -0.5 to 0.5),
+// each with its own size, weight and slow wander. A few carry a smaller bud
+// that circles them, pinching off and melting back in.
+const BUD_HOSTS = [0, 3, 5, 8, 11];
+const BEADS = Array.from({ length: DROP_COUNT - BUD_HOSTS.length }, (_, i) => ({
+  u: halton(i + 2, 2) - 0.5,
+  v: halton(i + 2, 3) - 0.5,
+  radius: 0.016 + 0.03 * fract((i + 1) * 0.618),
+  stiffness: 6 + 8 * fract(i * 0.37 + 0.2),
+  zeta: 0.3 + 0.12 * fract(i * 0.71),
+  wander: 0.05 + 0.04 * fract(i * 0.53),
+  pace: 0.11 + 0.14 * fract(i * 0.29),
+  phase: i * 2.4,
+}));
+const BUDS = BUD_HOSTS.map((host, i) => ({
+  host,
+  radius: BEADS[host].radius * 0.45,
+  reach: BEADS[host].radius * 1.2,
+  spin: (i % 2 ? -1 : 1) * (0.14 + 0.04 * i),
+  phase: i * 1.9,
+  stiffness: 5 + i * 1.5,
+  zeta: 0.3,
+}));
 
 const FRAME = { position: "relative", width: "100%", height: "100%", overflow: "hidden" };
 const CANVAS = { position: "absolute", inset: 0, display: "block", width: "100%", height: "100%" };
@@ -80,10 +114,10 @@ function freeTarget(gl, target) {
   gl.deleteFramebuffer(target.framebuffer);
 }
 
-function stepSpring(body, targetX, targetY, dt, stiffness, zeta) {
+function stepSpring(body, targetX, targetY, dt, stiffness, zeta, pushX, pushY) {
   const damping = 2 * zeta * Math.sqrt(stiffness);
-  body.vx += (stiffness * (targetX - body.x) - damping * body.vx) * dt;
-  body.vy += (stiffness * (targetY - body.y) - damping * body.vy) * dt;
+  body.vx += (stiffness * (targetX - body.x) - damping * body.vx + pushX) * dt;
+  body.vy += (stiffness * (targetY - body.y) - damping * body.vy + pushY) * dt;
   body.x += body.vx * dt;
   body.y += body.vy * dt;
 }
@@ -110,11 +144,19 @@ export default function GoldenGoo() {
         "uDt",
         "uPointer",
         "uPointerVel",
-        "uOrb",
-        "uOrbVel",
+        "uTime",
         "uCalm",
       ]);
-      draw = link(gl, DRAW_FRAG, ["uState", "uHasState", "uAspect", "uTime", "uSeed", "uOrbs", "uOrbVel"]);
+      draw = link(gl, DRAW_FRAG, [
+        "uState",
+        "uHasState",
+        "uAspect",
+        "uTime",
+        "uSeed",
+        "uDrops",
+        "uDropVel",
+        "uSwell",
+      ]);
     } catch (error) {
       console.error(error);
       setUnsupported(true);
@@ -142,14 +184,10 @@ export default function GoldenGoo() {
 
     const pointer = { clientX: 0, clientY: 0, seen: false };
     const target = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0 };
-    const main = { x: 0, y: 0, vx: 0, vy: 0 };
-    const satellites = SATELLITES.map((spec) => ({
-      x: Math.cos(spec.angle) * spec.offset,
-      y: Math.sin(spec.angle) * spec.offset,
-      vx: 0,
-      vy: 0,
-    }));
-    const orbUniform = new Float32Array(9);
+    const beads = BEADS.map(() => ({ x: 0, y: 0, vx: 0, vy: 0, placed: false }));
+    const buds = BUDS.map(() => ({ x: 0, y: 0, vx: 0, vy: 0, placed: false }));
+    const dropUniform = new Float32Array(DROP_COUNT * 3);
+    const dropVelUniform = new Float32Array(DROP_COUNT * 2);
 
     const resize = () => {
       const scale = Math.min(window.devicePixelRatio || 1, MAX_RENDER_SCALE);
@@ -177,6 +215,7 @@ export default function GoldenGoo() {
     const onPointer = (event) => {
       pointer.clientX = event.clientX;
       pointer.clientY = event.clientY;
+      if (!pointer.seen) resumed = true;
       pointer.seen = true;
     };
 
@@ -204,16 +243,16 @@ export default function GoldenGoo() {
       last = now;
       time += dt * (reduced ? 0.3 : 1);
 
-      // Until the pointer shows up, the drop wanders on its own. The pointer is
-      // measured against the canvas every frame, so scrolling the page past a
-      // resting cursor drags the liquid too.
+      // The pointer is measured against the canvas every frame, so scrolling the
+      // page past a resting cursor drags the liquid too. Until a pointer shows
+      // up it is parked far off the surface, where it stirs nothing.
       if (pointer.seen) {
         const rect = canvas.getBoundingClientRect();
         target.x = ((pointer.clientX - rect.left) / rect.width - 0.5) * aspect;
         target.y = 0.5 - (pointer.clientY - rect.top) / rect.height;
       } else {
-        target.x = Math.sin(time * 0.23) * 0.3 * Math.min(aspect, 1.6);
-        target.y = Math.sin(time * 0.31 + 1.2) * 0.17;
+        target.x = 99;
+        target.y = 99;
       }
       if (resumed) {
         target.px = target.x;
@@ -229,33 +268,57 @@ export default function GoldenGoo() {
       const pull = Math.hypot(target.vx, target.vy);
       const pullScale = pull > 4.5 ? 4.5 / pull : 1;
 
+      // Each bead is tied to a slowly wandering home by a soft spring. A passing
+      // pointer drags the beads near it along, and the spring swings them back.
+      const drift = time * SWIRL_SPEED;
+      const pushX = target.vx * pullScale * WAKE;
+      const pushY = target.vy * pullScale * WAKE;
+      const settle = (body, homeX, homeY, spec) => {
+        if (!body.placed) {
+          body.x = homeX;
+          body.y = homeY;
+          body.placed = true;
+        }
+        const dx = body.x - target.x;
+        const dy = body.y - target.y;
+        const wake = Math.exp(-(dx * dx + dy * dy) / 0.05);
+        stepSpring(body, homeX, homeY, SPRING_STEP, spec.stiffness, reduced ? 1 : spec.zeta, pushX * wake, pushY * wake);
+      };
+
       springDebt += dt;
       while (springDebt >= SPRING_STEP) {
         springDebt -= SPRING_STEP;
-        stepSpring(main, target.x, target.y, SPRING_STEP, reduced ? 60 : MAIN.stiffness, reduced ? 1 : MAIN.zeta);
-        satellites.forEach((satellite, index) => {
-          const spec = SATELLITES[index];
-          const angle = spec.angle + time * spec.spin;
-          stepSpring(
-            satellite,
-            main.x + Math.cos(angle) * spec.offset,
-            main.y + Math.sin(angle) * spec.offset,
-            SPRING_STEP,
-            spec.stiffness,
-            reduced ? 1 : spec.zeta
+        beads.forEach((bead, index) => {
+          const spec = BEADS[index];
+          const swing = drift * spec.pace + spec.phase;
+          settle(
+            bead,
+            spec.u * aspect * 0.92 + Math.sin(swing) * spec.wander,
+            spec.v * 0.7 + Math.cos(swing * 0.8 + spec.phase) * spec.wander,
+            spec
           );
+        });
+        buds.forEach((bud, index) => {
+          const spec = BUDS[index];
+          const host = beads[spec.host];
+          const angle = spec.phase + drift * spec.spin;
+          const reach = spec.reach * (1 + 0.35 * Math.sin(drift * 0.4 + spec.phase));
+          settle(bud, host.x + Math.cos(angle) * reach, host.y + Math.sin(angle) * reach, spec);
         });
       }
 
-      const breathe = 1 + 0.025 * Math.sin(time * 0.8);
-      orbUniform[0] = main.x;
-      orbUniform[1] = main.y;
-      orbUniform[2] = MAIN.radius * breathe;
-      satellites.forEach((satellite, index) => {
-        orbUniform[3 + index * 3] = satellite.x;
-        orbUniform[4 + index * 3] = satellite.y;
-        orbUniform[5 + index * 3] = SATELLITES[index].radius;
+      const fill = (body, radius, slot) => {
+        dropUniform[slot * 3] = body.x;
+        dropUniform[slot * 3 + 1] = body.y;
+        dropUniform[slot * 3 + 2] = radius;
+        dropVelUniform[slot * 2] = body.vx;
+        dropVelUniform[slot * 2 + 1] = body.vy;
+      };
+      beads.forEach((bead, index) => {
+        const spec = BEADS[index];
+        fill(bead, spec.radius * (1 + 0.06 * Math.sin(drift * 0.7 + spec.phase)), index);
       });
+      buds.forEach((bud, index) => fill(bud, BUDS[index].radius, BEADS.length + index));
 
       gl.bindVertexArray(vao);
       gl.disable(gl.BLEND);
@@ -269,8 +332,7 @@ export default function GoldenGoo() {
         gl.uniform1f(sim.uniforms.uDt, SIM_STEP);
         gl.uniform2f(sim.uniforms.uPointer, target.x, target.y);
         gl.uniform2f(sim.uniforms.uPointerVel, target.vx * pullScale, target.vy * pullScale);
-        gl.uniform2f(sim.uniforms.uOrb, main.x, main.y);
-        gl.uniform2f(sim.uniforms.uOrbVel, main.vx, main.vy);
+        gl.uniform1f(sim.uniforms.uTime, time);
         gl.uniform1f(sim.uniforms.uCalm, reduced ? 1 : 0);
         gl.activeTexture(gl.TEXTURE0);
 
@@ -294,8 +356,9 @@ export default function GoldenGoo() {
       gl.uniform1f(draw.uniforms.uAspect, aspect);
       gl.uniform1f(draw.uniforms.uTime, time);
       gl.uniform1f(draw.uniforms.uSeed, seed);
-      gl.uniform3fv(draw.uniforms.uOrbs, orbUniform);
-      gl.uniform2f(draw.uniforms.uOrbVel, main.vx, main.vy);
+      gl.uniform3fv(draw.uniforms.uDrops, dropUniform);
+      gl.uniform2fv(draw.uniforms.uDropVel, dropVelUniform);
+      gl.uniform1f(draw.uniforms.uSwell, SWELL);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 

@@ -1,3 +1,13 @@
+// How many beads the draw shader expects. GoldenGoo.jsx fills exactly this many.
+export const DROP_COUNT = 18;
+
+// Pace of everything the liquid does on its own: the pigment folding, the tide,
+// the whirlpools, and the swells drifting. 1 is the original pace; 1 / 3 takes
+// three times as long over the same motion. The pointer's push and the spring
+// back are not affected.
+export const SWIRL_SPEED = 1 / 3;
+const SWIRL_GLSL = SWIRL_SPEED.toFixed(5);
+
 export const VERT = `#version 300 es
 in vec2 aPos;
 out vec2 vUv;
@@ -21,9 +31,14 @@ uniform float uAspect;
 uniform float uDt;
 uniform vec2 uPointer;
 uniform vec2 uPointerVel;
-uniform vec2 uOrb;
-uniform vec2 uOrbVel;
+uniform float uTime;
 uniform float uCalm;
+
+const float SWIRL = ${SWIRL_GLSL};
+
+vec2 perp(vec2 v) {
+  return vec2(-v.y, v.x);
+}
 
 void main() {
   vec4 s = texture(uState, vUv);
@@ -36,14 +51,38 @@ void main() {
 
   vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
   vec2 toPointer = p - uPointer;
-  vec2 toOrb = p - uOrb;
-  float nearPointer = exp(-dot(toPointer, toPointer) / 0.05);
-  float nearOrb = exp(-dot(toOrb, toOrb) / 0.075);
-  float thick = max(nearPointer, nearOrb);
+  float gap = dot(toPointer, toPointer);
+  float nearPointer = exp(-gap / 0.05);
 
-  vec2 force = uPointerVel * nearPointer * 7.5 + uOrbVel * nearOrb * 4.5;
+  // The pointer shoves the liquid ahead of it, and the liquid beside its path
+  // runs back the other way, so a stroke leaves an eddy on either side.
+  vec2 away = toPointer / sqrt(gap + 0.00001);
+  float ring = (gap / 0.05) * exp(-gap / 0.05);
+  vec2 force = uPointerVel * nearPointer * 7.5;
+  force += (2.0 * dot(uPointerVel, away) * away - uPointerVel) * ring * 9.0;
+
+  // The surface moves on its own: a slow tide across the whole band, and three
+  // wandering whirlpools that wind the pigment up and let it go again.
+  float life = 1.0 - uCalm * 0.85;
+  float clock = uTime * SWIRL;
+  vec2 tide = vec2(
+    sin(p.y * 2.3 + clock * 0.37) + 0.6 * sin(p.x * 1.9 - p.y * 1.1 + clock * 0.21 + 1.7),
+    cos(p.x * 2.1 - clock * 0.29) + 0.6 * sin(p.y * 2.9 + p.x * 0.8 - clock * 0.17 + 4.2)
+  );
+  force += tide * 0.85 * life;
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i);
+    vec2 eye = vec2(
+      sin(clock * (0.071 + 0.023 * fi) + fi * 2.1) * uAspect * 0.42,
+      cos(clock * (0.093 - 0.017 * fi) + fi * 4.3) * 0.33
+    );
+    vec2 arm = p - eye;
+    float turn = sin(clock * (0.23 + 0.05 * fi) + fi * 1.7);
+    force += perp(arm) * exp(-dot(arm, arm) / 0.09) * 9.0 * turn * life;
+  }
 
   // The liquid is thicker where the pointer is: more drag, more internal friction.
+  float thick = nearPointer;
   float damping = mix(2.5, 4.4, thick) + uCalm * 6.0;
   float viscosity = mix(1.4, 7.5, thick);
 
@@ -61,6 +100,7 @@ void main() {
 
 export const DRAW_FRAG = `#version 300 es
 precision highp float;
+#define DROPS ${DROP_COUNT}
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -69,8 +109,11 @@ uniform float uHasState;
 uniform float uAspect;
 uniform float uTime;
 uniform float uSeed;
-uniform vec3 uOrbs[3];
-uniform vec2 uOrbVel;
+uniform vec3 uDrops[DROPS];
+uniform vec2 uDropVel[DROPS];
+uniform float uSwell;
+
+const float SWIRL = ${SWIRL_GLSL};
 
 const mat2 ROT = mat2(0.8, -0.6, 0.6, 0.8);
 
@@ -192,76 +235,61 @@ vec3 glitter(vec2 p, vec2 flow, float t, float gold) {
   return sum * (0.35 + 0.65 * min(gold, 1.0));
 }
 
-float smin(float a, float b, float k) {
-  float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-  return mix(b, a, h) - k * h * (1.0 - h);
-}
-
-// One heavy drop and two smaller ones that bud off and melt back into it.
-float orbField(vec2 p) {
-  vec2 q = p - uOrbs[0].xy;
-  float speed = length(uOrbVel);
-  vec2 dir = speed > 0.0001 ? uOrbVel / speed : vec2(1.0, 0.0);
-  float stretch = min(speed * 0.17, 0.4);
-  vec2 l = vec2(dot(q, dir), dot(q, vec2(-dir.y, dir.x)));
-  l.x /= 1.0 + stretch;
-  l.y *= 1.0 + stretch * 0.45;
-  float wobble = 0.0035 * sin(atan(l.y, l.x) * 3.0 + uTime * 0.9) + 0.002 * sin(atan(l.y, l.x) * 5.0 - uTime * 0.6);
-  float d0 = length(l) - uOrbs[0].z + wobble;
-  float d1 = length(p - uOrbs[1].xy) - uOrbs[1].z;
-  float d2 = length(p - uOrbs[2].xy) - uOrbs[2].z;
-  return smin(d0, smin(d1, d2, 0.04), 0.055);
+// The drops are not objects sitting on the liquid. Each is a soft swell in the
+// surface, with no edge: its height falls away smoothly to nothing. Swells that
+// drift together add up and become one, and a moving swell stretches along its
+// path. Returns the height in x and the uphill slope in yz; "pull" is how far
+// the swells draw the picture underneath toward their middles.
+vec3 swell(vec2 p, out vec2 pull) {
+  float height = 0.0;
+  vec2 slope = vec2(0.0);
+  pull = vec2(0.0);
+  for (int i = 0; i < DROPS; i++) {
+    vec3 drop = uDrops[i];
+    vec2 q = p - drop.xy;
+    float sigma = drop.z * 1.5;
+    if (dot(q, q) > sigma * sigma * 20.0) continue;
+    vec2 vel = uDropVel[i];
+    float speed = length(vel);
+    vec2 dir = speed > 0.0001 ? vel / speed : vec2(1.0, 0.0);
+    vec2 side = vec2(-dir.y, dir.x);
+    float stretch = min(speed * 0.35, 0.45);
+    float along = 1.0 / (1.0 + stretch);
+    float across = 1.0 + stretch * 0.4;
+    vec2 l = vec2(dot(q, dir) * along, dot(q, side) * across);
+    float w = exp(-dot(l, l) / (sigma * sigma));
+    height += w;
+    slope += (dir * (l.x * along) + side * (l.y * across)) * (-2.0 * w / sigma);
+    pull += q * w;
+  }
+  float ease = exp(-height);
+  return vec3(1.0 - ease, slope * ease);
 }
 
 void main() {
   vec2 p = (vUv - 0.5) * vec2(uAspect, 1.0);
   vec2 drag = uHasState > 0.5 ? texture(uState, vUv).xy : vec2(0.0);
-  vec2 pd = p - drag;
   float t = uTime;
+  float tFlow = t * 1.35 * SWIRL;
+
+  // A swell bends the one surface rather than laying a second picture on top,
+  // so there is no boundary where one stops and the liquid starts.
+  vec2 pull;
+  vec3 rise = swell(p, pull);
+  vec2 pd = p - drag - pull * 0.5 * uSwell;
 
   float gold;
   vec2 flow;
-  vec3 col = marble(pd * 1.15 + uSeed, t, 3.0, 0.0, gold, flow);
+  vec3 col = marble(pd * 1.15 + uSeed, tFlow, 3.0, 0.0, gold, flow);
   col += glitter(pd, flow, t, gold);
 
-  float d = orbField(p);
+  // Light from the upper left catches the near slope of each swell and leaves
+  // the far slope a little darker. No rim, no outline, no cast shadow.
   vec2 light = normalize(vec2(-0.55, 0.83));
-
-  float shadow = orbField(p + light * 0.02);
-  float halo = smoothstep(0.1, -0.01, shadow);
-  col *= 1.0 - 0.66 * halo * halo;
-
-  if (d < 0.004) {
-    vec2 e = vec2(0.002, 0.0);
-    vec2 n = normalize(vec2(
-      orbField(p + e.xy) - orbField(p - e.xy),
-      orbField(p + e.yx) - orbField(p - e.yx)
-    ) + 0.000001);
-
-    float radius = uOrbs[0].z;
-    vec2 centre = uOrbs[0].xy;
-    float depth = clamp(-d / radius, 0.0, 1.0);
-    vec2 local = (p - centre) * mix(1.75, 0.85, sqrt(depth)) - drag * 0.35;
-
-    float innerGold;
-    vec2 innerFlow;
-    vec3 inner = marble(ROT * local * 2.1 + centre * 0.35 + vec2(7.3, 2.1) + uSeed, t * 1.5 + 20.0, 4.6, 1.0, innerGold, innerFlow);
-    inner += glitter(local * 0.9 + centre * 0.3, innerFlow, t, innerGold) * 1.25;
-    inner = inner * 1.14 + vec3(0.035, 0.02, 0.0);
-
-    inner *= mix(0.34, 1.0, smoothstep(0.0, 0.04, -d));
-
-    float lit = dot(n, light);
-    float rim = smoothstep(0.0045, 0.001, abs(-d - 0.005));
-    inner += vec3(1.0, 0.86, 0.62) * rim * (0.08 + 0.5 * max(lit, 0.0));
-    inner += vec3(0.9, 0.58, 0.28) * rim * 0.2 * max(-lit, 0.0);
-
-    vec2 glint = (p - (centre + light * radius * 0.5)) * vec2(1.0, 1.5);
-    float spec = smoothstep(radius * 0.36, 0.0, length(glint));
-    inner += vec3(1.0, 0.95, 0.85) * spec * spec * 0.36;
-
-    col = mix(col, inner, smoothstep(0.004, -0.004, d));
-  }
+  float lit = dot(-rise.yz, light);
+  col *= 1.0 + uSwell * (0.44 * lit + 0.05 * rise.x);
+  float sheen = max(lit, 0.0);
+  col += vec3(1.0, 0.93, 0.8) * sheen * sheen * sheen * 0.5 * uSwell;
 
   vec2 v = (vUv - 0.5) * vec2(1.0, 0.9);
   col *= 1.0 - 0.5 * dot(v, v);
