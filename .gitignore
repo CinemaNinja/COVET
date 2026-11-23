@@ -2,6 +2,8 @@
 .DS_Store
 RAWPHOTOS/
 .vercel
+.wrangler/
 images/catalog-cut/
 /catalog/
 **/__pycache__/
+HIGHRES_IMAGES/
