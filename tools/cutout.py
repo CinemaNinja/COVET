@@ -12,8 +12,9 @@ One-time setup:
     python3 -m venv .venv && .venv/bin/pip install numpy opencv-python-headless
 
 Tuned for yellow gold on a pale, low-color background (the pink suede tray).
-Diamonds, opal, silver, and dark chains need a different key; shoot those on
-matte medium gray and check the result before using it.
+Pass --studio for a flat white product shot: gold, silver, and stones all
+stay, and the white inside links and hoops drops out. Diamonds, opal, silver,
+and dark chains on the pink tray still need a different key.
 """
 import argparse
 import subprocess
@@ -127,6 +128,62 @@ def cut(img: np.ndarray):
     return fg.astype(np.float32), alpha
 
 
+def cut_studio(img: np.ndarray):
+    """Lift a piece off a flat white studio field.
+
+    The paper is whatever matches the border, including the white that shows
+    through chain links and the middle of a hoop. Metal and stones stay: even
+    a bright highlight is darker or more colored than the backdrop. Only the
+    pale one-pixel fringe against the paper is dropped, so the edge does not
+    glow and the piece itself is not eaten into.
+    """
+    height, width = img.shape[:2]
+    band = max(4, min(height, width) // 80)
+    border = np.concatenate([
+        img[:band].reshape(-1, 3),
+        img[-band:].reshape(-1, 3),
+        img[:, :band].reshape(-1, 3),
+        img[:, -band:].reshape(-1, 3),
+    ])
+    backdrop = np.median(border, axis=0).astype(np.float32)
+    delta = np.linalg.norm(img - backdrop, axis=2)
+    chroma = img.max(axis=2) - img.min(axis=2)
+    paper = ((delta < 0.018) & (chroma < 0.035)).astype(np.uint8)
+
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(paper, connectivity=4)
+    if count < 2:
+        raise RuntimeError("no white backdrop found in this photo")
+    touches = np.zeros(count, np.bool_)
+    touches[labels[0, :]] = True
+    touches[labels[-1, :]] = True
+    touches[labels[:, 0]] = True
+    touches[labels[:, -1]] = True
+    touches[0] = False
+    # A link opening is a large flat gap. A specular dot on the metal is not.
+    opening = np.zeros(count, np.bool_)
+    opening[1:] = (~touches[1:]) & (stats[1:, cv2.CC_STAT_AREA] >= 90)
+    field = (touches | opening)[labels]
+
+    # The antialiased fringe is a pixel or two of near-white. Stop there.
+    # The bevel of the metal sits much further from the paper color.
+    fringe = cv2.dilate(field.astype(np.uint8), ellipse(3), iterations=2)
+    fringe = fringe.astype(bool) & (delta < 0.055)
+    backdrop_mask = field | fringe
+
+    foreground = (~backdrop_mask).astype(np.uint8)
+    dist = cv2.distanceTransform(foreground, cv2.DIST_L2, 3)
+    alpha = np.clip(dist / 1.1, 0, 1).astype(np.float32)
+    alpha[backdrop_mask] = 0
+
+    fg = img.copy()
+    soft = (alpha > 0.02) & (alpha < 0.999)
+    weight = np.clip(alpha, 1e-3, 1)[..., None]
+    fg[soft] = np.clip((img[soft] - (1.0 - weight[soft]) * backdrop) / weight[soft], 0, 1)
+    fg[alpha <= 0.02] = 0
+    alpha[alpha <= 0.02] = 0
+    return fg.astype(np.float32), alpha
+
+
 def cut_white(img: np.ndarray, sculpture=False):
     """Lift a near-white field. Keeps the smoke, drops the white fringe."""
     dist = np.linalg.norm(img - 1.0, axis=2)
@@ -185,6 +242,7 @@ def main() -> int:
     parser.add_argument("--name", help="output name (only with a single photo)")
     parser.add_argument("--out-dir", type=Path, default=OUT_DIR)
     parser.add_argument("--white", action="store_true", help="key a white background instead of gold")
+    parser.add_argument("--studio", action="store_true", help="key a flat white product shot, keeping metal and stones")
     args = parser.parse_args()
     if args.name and len(args.photos) > 1:
         parser.error("--name works with one photo at a time")
@@ -195,7 +253,9 @@ def main() -> int:
         target = args.out_dir / f"{name}.png"
         try:
             developed = develop(photo)
-            if args.white:
+            if args.studio:
+                fg, alpha = cut_studio(developed)
+            elif args.white:
                 fg, alpha = cut_white(developed, sculpture=True)
             else:
                 fg, alpha = cut(developed)

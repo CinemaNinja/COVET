@@ -545,9 +545,6 @@
       const on = chip.dataset.room === id;
       chip.classList.toggle("is-on", on);
       chip.setAttribute("aria-pressed", on ? "true" : "false");
-      if (on && chips.scrollWidth > chips.clientWidth) {
-        chips.scrollTo({ left: chip.offsetLeft - (chips.clientWidth - chip.offsetWidth) / 2, behavior: reduce ? "auto" : "smooth" });
-      }
     });
   }
 
@@ -686,12 +683,48 @@
     zoomAt(2, at.x, at.y, true);
   });
 
+  // Cell origin, so a short piece and a tall one in the same row sort together.
+  function cellOf(piece) {
+    return {
+      x: piece.x - (CELL - piece.w) / 2,
+      y: piece.y - (CELL - piece.h) / 2
+    };
+  }
+
+  // Left to right across a row, then the next row down. Rooms in one band share a row.
+  function readingOrder() {
+    return pieces.slice().sort((a, b) => {
+      const ao = cellOf(a);
+      const bo = cellOf(b);
+      if (Math.abs(ao.y - bo.y) > 1) return ao.y - bo.y;
+      return ao.x - bo.x;
+    });
+  }
+
+  function centerPiece(piece) {
+    goal.x = (pad.l + size.w - pad.r) / 2 - (piece.x + piece.w / 2) * goal.k;
+    goal.y = (pad.t + size.h - pad.b) / 2 - (piece.y + piece.h / 2) * goal.k;
+    limit();
+    move(true);
+    say(piece);
+  }
+
   world.addEventListener("click", (event) => {
     const piece = pieceOf(event.target);
     if (!piece) return;
     // A click that ends a drag is not a choice. A key press (detail 0) always is.
     if (dragged && event.detail > 0) return;
-    if (window.covetOpenPiece) window.covetOpenPiece(piece.item);
+    if (!window.covetOpenPiece) return;
+    const order = readingOrder();
+    const index = order.indexOf(piece);
+    window.covetOpenPiece(piece.item, {
+      items: order.map((entry) => entry.item),
+      index: index,
+      onShow: function (item) {
+        const next = pieces.find((entry) => entry.item === item);
+        if (next) centerPiece(next);
+      }
+    });
   });
 
   world.addEventListener("pointerover", (event) => {
@@ -750,11 +783,84 @@
   document.getElementById("cv-out").addEventListener("click", () => zoomCentre(1 / 1.6));
   document.getElementById("cv-fit").addEventListener("click", () => fit(true));
 
+  // One centered line when the row can shrink a little. Otherwise wrap, still centered.
+  let fitTries = 0;
+  function chipButtons(cols) {
+    return cols.querySelectorAll("button");
+  }
+
+  function lineWidth(cols) {
+    const buttons = chipButtons(cols);
+    if (!buttons.length) return 0;
+    const gap = parseFloat(getComputedStyle(cols).columnGap) || 0;
+    let total = 0;
+    for (let i = 0; i < buttons.length; i += 1) {
+      total += buttons[i].offsetWidth;
+      if (i) total += gap;
+    }
+    return total;
+  }
+
+  function lastRowCount(cols) {
+    const buttons = chipButtons(cols);
+    if (!buttons.length) return 0;
+    const top = buttons[buttons.length - 1].offsetTop;
+    let count = 0;
+    for (let i = 0; i < buttons.length; i += 1) {
+      if (buttons[i].offsetTop === top) count += 1;
+    }
+    return count;
+  }
+
+  function fitChips() {
+    const cols = chips && chips.parentElement;
+    if (!chips || !cols || section.hidden) return;
+    if (cols.clientWidth < 8) {
+      if (fitTries < 4) {
+        fitTries += 1;
+        requestAnimationFrame(fitChips);
+      }
+      return;
+    }
+    fitTries = 0;
+    cols.style.setProperty("--cv-chip", "1");
+    cols.classList.remove("is-line");
+    const available = cols.clientWidth;
+    const buttons = chipButtons(cols);
+    const needed = lineWidth(cols);
+    const floor = coarse ? 0.92 : 0.84;
+    if (needed > available + 1) {
+      const borders = buttons.length * 2;
+      const scalable = Math.max(1, needed - borders);
+      const scale = (available - 4 - borders) / scalable;
+      if (scale >= floor) {
+        cols.style.setProperty("--cv-chip", (Math.floor(scale * 1000) / 1000).toFixed(3));
+        cols.classList.add("is-line");
+        if (lineWidth(cols) <= available + 1) return;
+        cols.classList.remove("is-line");
+        cols.style.setProperty("--cv-chip", "1");
+      }
+    }
+    // A single button on the last row reads as a leftover. Ease the type until it joins.
+    if (buttons.length < 3 || lastRowCount(cols) !== 1) return;
+    let lo = floor;
+    let hi = 1;
+    for (let i = 0; i < 8; i += 1) {
+      const mid = (lo + hi) / 2;
+      cols.style.setProperty("--cv-chip", mid.toFixed(3));
+      if (lastRowCount(cols) === 1) hi = mid;
+      else lo = mid;
+    }
+    cols.style.setProperty("--cv-chip", lo.toFixed(3));
+    if (lastRowCount(cols) === 1) cols.style.setProperty("--cv-chip", "1");
+  }
+
   let resizing = 0;
   window.addEventListener("resize", () => {
     if (section.hidden || !built) return;
     window.clearTimeout(resizing);
     resizing = window.setTimeout(() => {
+      fitChips();
       // Keep the visitor's place unless the surface itself changed size.
       if (map.clientWidth === size.w && map.clientHeight === size.h) return;
       measure();
@@ -762,6 +868,14 @@
       fit(false);
     }, 120);
   });
+
+  if (window.ResizeObserver) {
+    const watcher = new ResizeObserver(() => {
+      if (section.hidden || !built) return;
+      fitChips();
+    });
+    watcher.observe(section);
+  }
 
   // Start fetching the atlas as soon as the pointer heads for the Canvas button.
   if (atlasUrl) {
@@ -772,12 +886,44 @@
     });
   }
 
+  function cameraPlace() {
+    return {
+      x: goal.x,
+      y: goal.y,
+      k: goal.k,
+      mode: groupMode,
+      room: activeRoom
+    };
+  }
+
+  function applyCamera(saved) {
+    if (!saved || typeof saved.x !== "number" || typeof saved.y !== "number" || typeof saved.k !== "number") return false;
+    goal.x = saved.x;
+    goal.y = saved.y;
+    goal.k = saved.k;
+    limit();
+    move(false);
+    return true;
+  }
+
   window.covetCanvas = {
-    open: function () {
+    place: cameraPlace,
+    open: function (saved) {
       if (!built) build();
+      fitChips();
       measure();
+      if (saved && saved.mode === "metal") {
+        showGroup("metal", saved.room || "gold");
+        applyCamera(saved);
+        return;
+      }
+      if (saved && saved.room && saved.room !== "all") {
+        activeRoom = saved.room;
+        paintRoomChips();
+        paintMetalChips("");
+      }
       layout();
-      fit(false);
+      if (!applyCamera(saved)) fit(false);
     }
   };
 })();

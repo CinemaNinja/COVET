@@ -323,25 +323,9 @@
       down = false;
       rail.classList.remove("is-dragging");
       const under = document.elementFromPoint(event.clientX, event.clientY);
-      if (moved < 8 && under && under.closest(".card-buy")) {
+      if (moved < 8 && under && (under.closest(".card-buy") || under.closest(".leaf-frame"))) {
         const leaf = under.closest(".leaf");
-        const photo = leaf && leaf.querySelector(".leaf-photo");
-        if (leaf && window.covetCart) {
-          window.covetCart.add({
-            id: (leaf.dataset.href || "").split("/products/")[1] || leaf.dataset.name,
-            name: leaf.dataset.name,
-            price: leaf.dataset.price,
-            image: photo ? photo.getAttribute("src") : "",
-            made: leaf.dataset.made === "true"
-          });
-        }
-      } else if (moved < 8 && under && under.closest(".leaf-frame")) {
-        const leaf = under.closest(".leaf");
-        if (leaf && leaf.dataset.href) window.openShop(leaf);
-        else if (leaf) {
-          remember(leaf);
-          openLook(leaf);
-        }
+        if (leaf) openPiece(leaf);
       }
       if (moved >= 8) {
         const nearest = Math.round(-spin / STEP);
@@ -386,7 +370,7 @@
     };
   }
 
-  function activate(id, smooth) {
+  function activate(id, smooth, at) {
     active = id;
     const section = sections.find((item) => item.id === id);
     tabs.querySelectorAll(".section-tab").forEach((tab) => {
@@ -414,7 +398,7 @@
         mounted = mount(document.getElementById("rail-" + id), section.items);
         mounts.set(id, mounted);
       }
-      mounted.go(mounted.current(), smooth);
+      mounted.go(typeof at === "number" ? at : mounted.current(), smooth);
     });
   }
 
@@ -483,13 +467,7 @@
       img.src = item.images[0];
       img.alt = item.name;
       button.appendChild(img);
-      button.addEventListener("click", () => {
-        if (button.dataset.href && window.openShop) window.openShop(button);
-        else {
-          remember(button);
-          openLook(button);
-        }
-      });
+      button.addEventListener("click", () => openPiece(button));
       row.appendChild(button);
     });
   }
@@ -507,6 +485,12 @@
     let down = false;
     let startX = 0;
     let dragged = 0;
+    let sequence = null;
+    let pieceAt = 0;
+    let onShow = null;
+    const walk = document.getElementById("shop-walk");
+    const back = document.getElementById("shop-back");
+    const forward = document.getElementById("shop-forward");
 
     function money(value) {
       const amount = Number(value);
@@ -518,13 +502,29 @@
       if (!frames.length) return;
       index = (i + frames.length) % frames.length;
       img.src = frames[index];
+      buy.dataset.image = frames[index] || "";
       dots.querySelectorAll("img").forEach((thumb, n) => thumb.classList.toggle("is-on", n === index));
     }
 
-    window.openShop = function (el) {
+    function paintSteps() {
+      const walking = !!(walk && back && forward && sequence && sequence.length > 1);
+      if (walk) walk.hidden = !walking;
+      if (!walking) return;
+      const atStart = pieceAt <= 0;
+      const atEnd = pieceAt >= sequence.length - 1;
+      back.disabled = atStart;
+      forward.disabled = atEnd;
+      back.setAttribute("aria-label", atStart ? "This is the first piece" : "Previous piece");
+      forward.setAttribute("aria-label", atEnd ? "This is the last piece" : "Next piece");
+    }
+
+    function present(el) {
       shop.classList.toggle("is-plate", el.classList.contains("is-plate"));
       frames = (el.dataset.images || "").split("|").filter(Boolean);
-      if (!frames.length) frames = [el.querySelector("img").src];
+      if (!frames.length) {
+        const shot = el.querySelector("img");
+        frames = shot ? [shot.src] : [];
+      }
       index = 0;
       document.getElementById("shop-kicker").textContent = el.dataset.made === "true"
         ? el.dataset.designer + "  ·  Made to order"
@@ -538,10 +538,11 @@
       buy.dataset.image = frames[0] || "";
       buy.dataset.made = el.dataset.made || "";
       buy.dataset.handle = (el.dataset.href || "").split("/products/")[1] || el.dataset.name || "";
-      buy.hidden = false;
-      dots.hidden = frames.length < 2;
-      document.getElementById("shop-prev").hidden = frames.length < 2;
-      document.getElementById("shop-next").hidden = frames.length < 2;
+      buy.hidden = !(el.dataset.price || el.dataset.href);
+      const several = frames.length > 1;
+      dots.hidden = !several;
+      document.getElementById("shop-prev").hidden = !several;
+      document.getElementById("shop-next").hidden = !several;
       dots.replaceChildren();
       remember(el);
       frames.forEach((src, n) => {
@@ -552,7 +553,29 @@
         dots.appendChild(thumb);
       });
       frame(0);
-      shop.showModal();
+      paintSteps();
+    }
+
+    function stepPiece(delta) {
+      if (!sequence || sequence.length < 2) return;
+      const nextAt = pieceAt + delta;
+      if (nextAt < 0 || nextAt >= sequence.length) return;
+      pieceAt = nextAt;
+      const item = sequence[pieceAt];
+      present(storeTile(item));
+      if (onShow) onShow(item);
+      const stay = delta < 0 ? back : forward;
+      const other = delta < 0 ? forward : back;
+      if (stay && !stay.disabled) stay.focus();
+      else if (other) other.focus();
+    }
+
+    window.openShop = function (el, nav) {
+      sequence = nav && nav.items && nav.items.length > 1 ? nav.items : null;
+      pieceAt = sequence ? Math.max(0, Math.min(sequence.length - 1, nav.index || 0)) : 0;
+      onShow = sequence && nav.onShow ? nav.onShow : null;
+      present(el);
+      if (!shop.open) shop.showModal();
     };
 
     document.getElementById("shop-prev").addEventListener("click", (event) => {
@@ -563,8 +586,17 @@
       event.stopPropagation();
       frame(index + 1);
     });
-    ["shop-prev", "shop-next"].forEach((id) => {
-      document.getElementById(id).addEventListener("pointerdown", (event) => event.stopPropagation());
+    if (back) back.addEventListener("click", (event) => {
+      event.stopPropagation();
+      stepPiece(-1);
+    });
+    if (forward) forward.addEventListener("click", (event) => {
+      event.stopPropagation();
+      stepPiece(1);
+    });
+    ["shop-prev", "shop-next", "shop-back", "shop-forward"].forEach((id) => {
+      const button = document.getElementById(id);
+      if (button) button.addEventListener("pointerdown", (event) => event.stopPropagation());
     });
 
     stage.addEventListener("pointerdown", (event) => {
@@ -597,10 +629,21 @@
     }, { passive: false });
 
     document.getElementById("shop-close").addEventListener("click", () => shop.close());
+    shop.addEventListener("close", () => {
+      sequence = null;
+      onShow = null;
+      paintSteps();
+    });
     shop.addEventListener("click", (event) => {
       if (event.target === shop) shop.close();
     });
     shop.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      if (sequence && sequence.length > 1) {
+        event.preventDefault();
+        stepPiece(event.key === "ArrowRight" ? 1 : -1);
+        return;
+      }
       if (frames.length < 2) return;
       if (event.key === "ArrowRight") frame(index + 1);
       if (event.key === "ArrowLeft") frame(index - 1);
@@ -635,13 +678,7 @@
     img.loading = "lazy";
     img.decoding = "async";
     shot.appendChild(img);
-    shot.addEventListener("click", () => {
-      if (el.dataset.href && window.openShop) window.openShop(el);
-      else {
-        remember(el);
-        openLook(el);
-      }
-    });
+    shot.addEventListener("click", () => openPiece(el));
 
     const name = document.createElement("h3");
     name.className = "store-name";
@@ -662,20 +699,17 @@
       buy.type = "button";
       buy.className = "card-buy";
       buy.textContent = "Buy now";
-      buy.addEventListener("click", () => {
-        if (!window.covetCart) return;
-        window.covetCart.add({
-          id: (item.href || "").split("/products/")[1] || item.name,
-          name: item.name,
-          price: item.price,
-          image: frames[0] || "",
-          made: !!item.madeToOrder
-        });
+      buy.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openPiece(el);
       });
       el.appendChild(buy);
     }
     return el;
   }
+
+  let storeRoom = "all";
+  let showStore = function () {};
 
   function mountStore() {
     const grid = document.getElementById("store-grid");
@@ -683,6 +717,7 @@
     if (!grid || !filters) return;
     const all = sections.reduce((list, section) => list.concat(section.items), []);
     function show(id) {
+      storeRoom = id;
       const list = id === "all" ? all : all.filter((item) => item.section === id);
       grid.replaceChildren.apply(grid, list.map(storeTile));
       filters.querySelectorAll("button").forEach((button) => {
@@ -703,21 +738,94 @@
       button.addEventListener("click", () => show(room.id));
       filters.appendChild(button);
     });
+    showStore = show;
     show("all");
   }
 
   // canvas.js draws every room on one surface and opens pieces through these.
   window.covetRooms = sections.filter((section) => section.items.length);
-  window.covetOpenPiece = function (item) {
-    const el = storeTile(item);
-    if (el.dataset.href && window.openShop) window.openShop(el);
+  function openPiece(el, nav) {
+    if (!el) return;
+    if (window.openShop) window.openShop(el, nav);
     else {
       remember(el);
       openLook(el);
     }
+  }
+
+  window.covetOpenPiece = function (item, nav) {
+    openPiece(storeTile(item), nav);
   };
 
-  function setView(view) {
+  const placeKey = "covet-place";
+
+  function readPlace() {
+    try {
+      const place = JSON.parse(sessionStorage.getItem(placeKey) || "null");
+      if (!place || place.path !== location.pathname) return null;
+      return place;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function currentView() {
+    if (document.body.classList.contains("is-canvas")) return "canvas";
+    if (document.body.classList.contains("is-store")) return "store";
+    return "rooms";
+  }
+
+  function writePlace() {
+    let previous = null;
+    try { previous = JSON.parse(sessionStorage.getItem(placeKey) || "null"); } catch (err) { previous = null; }
+    const view = currentView();
+    const mounted = mounts.get(active);
+    const place = {
+      path: location.pathname,
+      view: view,
+      hash: location.hash || "",
+      scrollY: window.scrollY || 0,
+      collection: active,
+      collectionAt: mounted ? mounted.current() : 0,
+      storeRoom: storeRoom,
+      canvas: view === "canvas" && window.covetCanvas && window.covetCanvas.place
+        ? window.covetCanvas.place()
+        : (previous && previous.canvas) || null
+    };
+    try { sessionStorage.setItem(placeKey, JSON.stringify(place)); } catch (err) { /* private mode */ }
+  }
+
+  let scrollHold = 0;
+
+  function holdScroll(y) {
+    const token = ++scrollHold;
+    const target = Math.max(0, Number(y) || 0);
+    const until = performance.now() + 1800;
+    function place() {
+      if (scrollHold !== token) return;
+      if (Math.abs(window.scrollY - target) <= 1) return;
+      const root = document.documentElement;
+      const previous = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      window.scrollTo(0, target);
+      root.style.scrollBehavior = previous;
+    }
+    function watch() {
+      if (scrollHold !== token || performance.now() > until) return;
+      place();
+      requestAnimationFrame(watch);
+    }
+    place();
+    requestAnimationFrame(watch);
+    window.addEventListener("load", place);
+    function stop() { if (scrollHold === token) scrollHold += 1; }
+    window.addEventListener("wheel", stop, { passive: true, once: true });
+    window.addEventListener("pointerdown", stop, { passive: true, once: true });
+    window.addEventListener("keydown", stop, { once: true });
+  }
+
+  function setView(view, options) {
+    const restore = !!(options && options.restore);
     if (view !== "store" && view !== "canvas") view = "rooms";
     const store = view === "store";
     const canvas = view === "canvas";
@@ -732,11 +840,29 @@
       button.classList.toggle("is-on", on);
       button.setAttribute("aria-pressed", on ? "true" : "false");
     });
-    if (view === "rooms" && (location.hash === "#store" || location.hash === "#canvas")) {
-      history.replaceState(null, "", location.pathname + location.search);
+    if (view === "store" || view === "canvas") {
+      const next = "#" + view;
+      if (location.hash !== next) history.replaceState({ covetView: view }, "", location.pathname + location.search + next);
+    } else if (location.hash === "#store" || location.hash === "#canvas") {
+      history.replaceState({ covetView: "rooms" }, "", location.pathname + location.search);
     }
-    window.scrollTo(0, 0);
-    if (canvas && window.covetCanvas) window.covetCanvas.open();
+    if (canvas && window.covetCanvas) {
+      const place = restore ? readPlace() : null;
+      window.covetCanvas.open(place && place.canvas);
+    }
+    scrollHold += 1;
+    if (restore) {
+      const place = readPlace();
+      if (view === "store" && place && place.storeRoom) showStore(place.storeRoom);
+      if (view !== "canvas" && place) holdScroll(place.scrollY);
+    } else {
+      const root = document.documentElement;
+      const previous = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      window.scrollTo(0, 0);
+      root.style.scrollBehavior = previous;
+    }
+    writePlace();
   }
 
   document.querySelectorAll("button[data-view]").forEach((button) => {
@@ -750,9 +876,33 @@
   wireShop();
   renderRecent();
   mountStore();
-  if (location.hash === "#store") setView("store");
-  // canvas.js loads after this file, so wait for it before opening the canvas.
-  if (location.hash === "#canvas") window.addEventListener("DOMContentLoaded", () => setView("canvas"));
-  if (document.readyState === "complete") activate(active, false);
-  else window.addEventListener("load", () => activate(active, false));
+
+  const saved = readPlace();
+  if (saved && sections.some((section) => section.id === saved.collection)) active = saved.collection;
+  const savedAt = saved && saved.collection === active && typeof saved.collectionAt === "number" ? saved.collectionAt : 0;
+  const hashView = location.hash === "#canvas" ? "canvas" : location.hash === "#store" ? "store" : "";
+  const opening = hashView || (saved && saved.view) || "rooms";
+
+  if (opening === "canvas") {
+    const start = () => setView("canvas", { restore: !!(saved && saved.view === "canvas") });
+    if (window.covetCanvas) start();
+    else window.addEventListener("DOMContentLoaded", start);
+  } else if (opening === "store") {
+    setView("store", { restore: !!(saved && saved.view === "store") });
+  } else if (saved) {
+    holdScroll(saved.scrollY);
+  }
+
+  if (document.readyState === "complete") activate(active, false, savedAt);
+  else window.addEventListener("load", () => activate(active, false, savedAt));
+
+  let placeTimer = 0;
+  function rememberSoon() {
+    window.clearTimeout(placeTimer);
+    placeTimer = window.setTimeout(writePlace, 120);
+  }
+  window.addEventListener("scroll", rememberSoon, { passive: true });
+  window.addEventListener("hashchange", rememberSoon);
+  window.addEventListener("pagehide", writePlace);
+  window.addEventListener("beforeunload", writePlace);
 })();

@@ -1387,13 +1387,12 @@ h2 {
   border-radius: 8px;
 }
 
-.section-rail .leaf.is-plate img.leaf-photo,
-.shop.is-plate .shop-stage img {
+.section-rail .leaf.is-plate img.leaf-photo {
   width: auto;
   height: auto;
   max-width: 100%;
   max-height: 100%;
-  object-fit: fill;
+  object-fit: contain;
 }
 
 .section-rail .leaf.is-plate .leaf-photo,
@@ -1950,46 +1949,46 @@ body.is-canvas .nav {
   left: 0;
   right: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 1rem;
-  padding: 0.7rem clamp(1rem, 4vw, 4vw) 1.1rem;
+  gap: 0.55rem;
+  padding: 0.65rem clamp(0.75rem, 2.5vw, 2rem) 1.2rem;
+  text-align: center;
   /* Pieces slide under this strip when the surface is moved. */
   background: linear-gradient(to bottom, rgba(249, 245, 236, 0.98) 0%, rgba(249, 245, 236, 0.98) 72%, rgba(249, 245, 236, 0) 100%);
   pointer-events: none;
 }
 
 .cv-count {
-  flex: 0 0 auto;
+  width: 100%;
   margin: 0;
-  font-size: 0.68rem;
+  font-size: clamp(0.62rem, 1.15vw, 0.72rem);
   letter-spacing: 0.24em;
   text-transform: uppercase;
+  text-align: center;
   white-space: pre;
   color: var(--cv-bronze);
 }
 
 .cv-nav-cols {
+  --cv-chip: 1;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.35rem;
+  flex-flow: row wrap;
+  justify-content: center;
+  align-items: center;
+  gap: calc(0.38rem * var(--cv-chip));
+  width: 100%;
   min-width: 0;
-  margin-left: auto;
+  margin: 0;
   pointer-events: auto;
 }
 
-.cv-rooms,
-.cv-metal {
-  display: flex;
-  gap: 0.4rem;
-  min-width: 0;
-  max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
+.cv-nav-cols.is-line { flex-wrap: nowrap; }
 
-.cv-rooms::-webkit-scrollbar,
-.cv-metal::-webkit-scrollbar { display: none; }
+/* The groups stay in the markup. The buttons share one centered wrap,
+   so Gold and Silver sit on the last room row when there is room. */
+.cv-rooms,
+.cv-metal { display: contents; }
 
 .cv-rooms button,
 .cv-metal button {
@@ -1999,11 +1998,11 @@ body.is-canvas .nav {
   backdrop-filter: blur(8px);
   color: var(--cv-ink);
   font: inherit;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
+  font-size: calc(0.62rem * var(--cv-chip));
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   white-space: nowrap;
-  padding: 0.42rem 0.72rem;
+  padding: calc(0.42rem * var(--cv-chip)) calc(0.68rem * var(--cv-chip));
   cursor: pointer;
   transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
@@ -2084,13 +2083,11 @@ body.is-canvas .nav {
 
 @media (max-width: 760px) {
   .cv-top {
-    flex-direction: column;
-    align-items: stretch;
     gap: 0.45rem;
-    padding-top: 0.6rem;
-    padding-right: 0;
+    padding-top: 0.55rem;
+    padding-bottom: 1rem;
   }
-  .cv-rooms { margin-left: 0; padding-right: 1rem; }
+  .cv-count { letter-spacing: 0.16em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2861,6 +2858,8 @@ html[data-hour="night"] body::after {
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
+  height: 100dvh;
+  max-height: 100dvh;
 }
 
 .shop::backdrop { background: rgba(5, 7, 9, 0.72); }
@@ -2870,9 +2869,6 @@ html[data-hour="night"] body::after {
   width: min(100%, 640px);
   flex: 1 1 auto;
   min-height: 0;
-  height: auto;
-  max-height: calc(100vh - 16rem);
-  max-height: calc(100dvh - 16rem);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -2881,9 +2877,14 @@ html[data-hour="night"] body::after {
 }
 
 .shop-stage img {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  object-position: center;
   pointer-events: none;
 }
 
@@ -2906,6 +2907,57 @@ html[data-hour="night"] body::after {
 .shop-flip.prev { left: 0.4rem; }
 .shop-flip.next { right: 0.4rem; }
 .shop-flip[hidden] { display: none; }
+
+/* Piece to piece, only when the dialog was opened from the canvas.
+   Kept under the photograph so the jewel stays clear. Photo arrows stay on the image. */
+.shop-walk {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: min(100%, 640px);
+  flex: 0 0 auto;
+}
+
+.shop-walk[hidden] { display: none; }
+
+.shop-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid rgba(235, 203, 63, 0.75);
+  background: transparent;
+  color: var(--pearl);
+  font: inherit;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.shop-step span {
+  font-size: 1rem;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.shop-step:hover,
+.shop-step:focus-visible {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #14110e;
+}
+
+.shop-step:disabled,
+.shop-step:disabled:hover,
+.shop-step:disabled:focus-visible {
+  opacity: 0.32;
+  background: transparent;
+  border-color: rgba(235, 203, 63, 0.28);
+  color: var(--pearl);
+  cursor: default;
+}
 
 .shop-foot {
   flex: 0 0 auto;

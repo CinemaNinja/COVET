@@ -30,6 +30,9 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from cutout import cut_studio
+
 REPO = Path(__file__).resolve().parent.parent
 SOURCES = [REPO / "catalog.js", REPO / "covet-collection.js"]
 OUT_DIR = REPO / "images" / "canvas"
@@ -43,7 +46,11 @@ SPECK = 0.004   # subject smaller than this share of the frame: not a real find
 
 
 def piece_photos() -> list:
-    """First photo of every piece, in file order, without repeats."""
+    """Hero photo of every piece, in file order, without repeats.
+
+    Extra views of the same piece live in an images array on that piece.
+    They stay off the canvas and open in the slideshow. Only image is a tile.
+    """
     seen, photos = set(), []
     for source in SOURCES:
         for path in re.findall(r'"image":\s*"([^"]+)"', source.read_text()):
@@ -107,8 +114,29 @@ def shot_on_white(photo: Path) -> bool:
     return float(np.median(edge.min(axis=1))) > 0.94
 
 
+def studio_plate(photo: Path) -> np.ndarray:
+    """A white product shot, keyed so the metal and stones stay."""
+    im = cv2.imread(str(photo), cv2.IMREAD_COLOR)
+    if im is None:
+        raise RuntimeError(f"unreadable photo {photo}")
+    fg, alpha = cut_studio(im.astype(np.float32) / 255.0)
+    return np.dstack([fg, alpha])
+
+
 def cutout(photo: str, lifted) -> tuple:
     """Return (float RGBA trimmed to the piece, True when it is a whole photo)."""
+    path = REPO / photo
+    # Midas ships flat white product shots. The subject lift keeps that white
+    # card; keying the paper keeps the chain, the stones, and the openings.
+    if "/midas/" in photo and shot_on_white(path):
+        rgba = studio_plate(path)
+        alpha = rgba[:, :, 3]
+        ys, xs = np.where(alpha > 0.04)
+        if len(ys):
+            pad = 3
+            y0, y1 = max(0, ys.min() - pad), min(alpha.shape[0], ys.max() + pad + 1)
+            x0, x1 = max(0, xs.min() - pad), min(alpha.shape[1], xs.max() + pad + 1)
+            return rgba[y0:y1, x0:x1], False
     if lifted is not None:
         im = cv2.imread(str(lifted), cv2.IMREAD_UNCHANGED)
         if im is not None and im.ndim == 3 and im.shape[2] == 4:

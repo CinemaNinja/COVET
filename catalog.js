@@ -2177,7 +2177,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/sterling-silver-3-95mm-round-and-oval-link-5-1-chain-MF046172-92B_16.jpg",
-    "name": "Sterling Silver 3.95mm Round and Oval Link 5+1 Chain",
+    "name": "Round and Oval Link 5+1 Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2191,7 +2191,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/sterling-silver-6-70mm-puff-mariner-chain-MF046535-92B_18.jpg",
-    "name": "Sterling Silver 6.70mm Puff Mariner Chain",
+    "name": "Puff Mariner Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2205,7 +2205,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/sterling-silver-3-70mm-puff-mariner-chain-MF046613-92B_18.jpg",
-    "name": "Sterling Silver 3.70mm Puff Mariner Chain",
+    "name": "Puff Mariner Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2219,7 +2219,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/sterling-silver-3-80mm-d-c-anchor-chain-MZ013229-92B_18.jpg",
-    "name": "Sterling Silver 3.80mm D/C Anchor Chain",
+    "name": "Diamond Cut Anchor Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2233,7 +2233,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/sterling-silver-4-50mm-d-c-anchor-chain-MZ013226-92B_20.jpg",
-    "name": "Sterling Silver 4.50mm D/C Anchor Chain",
+    "name": "Diamond Cut Anchor Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2247,7 +2247,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/6-90mm-sterling-silver-mariner-chain-MZ014357-92B_20.jpg",
-    "name": "6.90mm Sterling Silver Mariner Chain",
+    "name": "Mariner Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2275,7 +2275,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/barbell-necklace-MF046465-14Y_18.jpg",
-    "name": "Barbell Necklace",
+    "name": "Barbell Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2289,7 +2289,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/3-1-oval-link-chain-MF047279-14Y_18.jpg",
-    "name": "3+1 Oval Link Chain",
+    "name": "Oval Link Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
@@ -2303,7 +2303,7 @@ window.COVET_CATALOG = [
   },
   {
     "image": "images/catalog/fine-jewelry/midas/4-1-round-oval-link-chain-MF046532-14Y_18.jpg",
-    "name": "4+1 Round Oval Link Chain",
+    "name": "Round Oval Link Chain",
     "section": "chains",
     "designer": "Midas",
     "kind": "Chain",
